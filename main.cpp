@@ -5,14 +5,14 @@
 #include <thread>
 #include <chrono>
 
-double points_inside = 0;
+long double points_inside = 0;
 
 double func(double x)
 {
-    return abs(sin(x) * x);
+    return sin(x) * x;
 }
 
-void count_points(double a, double b, double lower_bound, double upper_bound, int points_amount_local )
+void count_points(double a, double b, double lower_bound, double upper_bound, long long points_amount_local )
 {
     double local_points = 0;
     std::mt19937 generator(time(nullptr));
@@ -23,15 +23,19 @@ void count_points(double a, double b, double lower_bound, double upper_bound, in
         double x = dist_w(generator);
         double y = dist_h(generator);
         double val = func(x);
-        if ((y > 0 && val > 0 && y < val) || (y < 0 && val < 0 && y > val))
+        if ((y > 0 && val > 0 && y < val))
         {
             local_points++;
+        }
+        else if ((y < 0 && val < 0 && y > val))
+        {
+            local_points--;
         }
     }
     points_inside += local_points;
 }
 
-double monte_carlo(double a, double b, int thread_amount, int points_amount)
+double monte_carlo(double a, double b, int thread_amount, long long points_amount)
 {
     double  lower_bound = -b;
     double upper_bound = b;
@@ -50,10 +54,11 @@ double monte_carlo(double a, double b, int thread_amount, int points_amount)
     {
         x->join();
     }
-    return (upper_bound - lower_bound) * (b - a) * (points_inside / points_amount / thread_amount);
+    return (upper_bound - lower_bound) * (b - a) * (points_inside / points_amount);
 }
 int main(){
-    int threads, points;
+    int threads;
+    long long points;
     double a, b;
     std::cout << "Enter desirable thread amount: \n";
     std::cin >> threads;
@@ -61,8 +66,44 @@ int main(){
     std::cin >> points;
     std::cout << "Enter function bounds" << '\n';
     std::cin >> a >> b;
-    auto start = std::chrono::high_resolution_clock::now();
-    std::cout << "answer: " << monte_carlo(a, b, threads, points) << '\n';
-    std::cout << "time taken: "  << (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start)).count()/1000.0 << '\n';
+    if (a > b) { std::swap(a, b);}
+    if (points > 0 && threads > 0)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        std::cout << "answer: " << monte_carlo(a, b, threads, points) << '\n';
+        std::cout << "time taken: "  << (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start)).count()/1000.0 << '\n';
+    }
+    else
+    {
+        throw std::runtime_error("where have you seen a negative amount of threads or points?\n");
+    }
+
+    // теперь посмотрим, что программа действительно работает правильно для случая например от -7 до 48
+    // 25.33834445151358
+    double correct_result = 25.338344451;
+    long long point_amount = 1000000;
+    double epsilon = 0.01;
+    double total_time = 0;
+    int run_amount = 100;
+    double precision = correct_result * (96 * 55 - correct_result) / point_amount / (epsilon * epsilon) / (96 * 55 * 96 * 55);
+    double our_precision = 0;
+    for (int i = 0; i < run_amount; i ++)
+    {
+        auto start = std::chrono::high_resolution_clock::now();
+        if (correct_result - monte_carlo(-7, 48, 10, point_amount) >= epsilon * 96 * 55)
+        {
+            our_precision ++;
+        }
+        total_time += (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - start)).count()/1000.0;
+    }
+    std::cout << "average runtime: " << total_time / run_amount << '\n';
+    if (our_precision/run_amount <= our_precision)
+    {
+        std::cout << "everything works!!!";
+    }
+    else
+    {
+        std::cout << "oh no, it broke again...";
+    }
     return 0;
 }
