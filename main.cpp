@@ -3,9 +3,11 @@
 #include <math.h>
 #include <random>
 #include <thread>
+#include <mutex>
 #include <chrono>
 
-long double points_inside = 0;
+std::vector<long double> thread_responces = {};
+std::mutex thread_responces_mutex;
 
 double func(double x)
 {
@@ -32,11 +34,14 @@ void count_points(double a, double b, double lower_bound, double upper_bound, lo
             local_points--;
         }
     }
-    points_inside += local_points;
+    thread_responces_mutex.lock();
+    thread_responces.push_back(local_points);
+    thread_responces_mutex.unlock();
 }
 
 double monte_carlo(double a, double b, int thread_amount, long long points_amount)
 {
+    long double points_inside = 0;
     double  lower_bound = -b;
     double upper_bound = b;
 
@@ -53,6 +58,14 @@ double monte_carlo(double a, double b, int thread_amount, long long points_amoun
     for (auto x : threads)
     {
         x->join();
+    }
+    while (thread_responces.size() < thread_amount)
+    {
+        std::cout << "threads ready: " << thread_responces.size() << " / " << thread_amount << '\n';
+    }
+    for (auto x : thread_responces)
+    {
+        points_inside += x;
     }
     return (upper_bound - lower_bound) * (b - a) * (points_inside / points_amount);
 }
